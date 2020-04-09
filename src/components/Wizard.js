@@ -1,5 +1,10 @@
-import React from "react";
-	
+import React, { useEffect, useRef, useState } from "react";
+
+const log = (data, message = "[LOG]: ", type = "log") => {
+	console[type](message, data);
+	return data;
+};
+
 let frameStyles = {
 	margin: "0px",
 	padding: "0px",
@@ -9,82 +14,77 @@ let frameStyles = {
 	transition: "transform 0.4s linear"
 };
 
-const defaultStyles = {width: "60%"};
+const wizardItemContainerStyles = {
+	minWidth: "100%",
+	height: "400px",
+	display: "flex",
+	flexDirection: "column",
+};
 
-class Wizard extends React.Component {
-	constructor(props) {
-		super(props)
-		
-		const {children, defaultStep, style = defaultStyles} = this.props;
-		
-		this.state = {
-			activeStep: defaultStep || 0,
-		};
-		
-		this.childrenCount = React.Children.count(children);
-		this.scrollElement = React.createRef(null);
-		this.width = style.width || "100%";
+const childStyles = {
+	color: "white",
+	height: "100%",
+	display: "flex",
+	justifyContent: "center",
+	alignItems: "center",
+	margin: "0px"
+};
+
+
+const WizardContext = React.createContext({ initialStep: 0, currentStep: 0 });
+
+
+const Wizard = ({ children, initialStep = 0, styles }) => {
+	const [state, updateState] = useState({ currentStep: initialStep, initialStep, styles });
+
+	let childrenFn = children({ currentStep: state.currentStep, nextStep: null });
+
+	const numbOfChildren = React.Children.count(childrenFn.props.children);
+
+	const scrollContainer = useRef(null);
+
+	const updateCurrentStep = () => {
+		updateState({ currentStep: state.currentStep === (numbOfChildren - 1) ? 0 : state.currentStep += 1 });
 	};
-	
-	setActiveStep = (activeStep) => {
-		const lastChild = this.childrenCount - 1;
-		const newActiveStep = activeStep === lastChild ? 0 : activeStep += 1;
-		this.setState({activeStep: newActiveStep});
+
+	const nextStep = () => {
+		scrollContainer.current && updateCurrentStep();
 	};
-	
-	nextStep = () => {
-		if(!this.scrollElement.current) return;
-		
-		const {activeStep} = this.state;
-		const {current} = this.scrollElement;
-		const translateValue = 100 * activeStep;
-		
-		this.setActiveStep(activeStep);
-		
-		current.style.transform = `translateX(-${translateValue}%)`;
-	};
-	
-	setStyles = (childElement, baseStyles) => {
-		const {props} = childElement;
-		let {style = {}} = props;
-		
-		style = {...style, ...baseStyles};
-		
-		return React.cloneElement(childElement, {style, ...props});
-	};
-	
-	wrapChildElement = (childElement) => {
-		const {props} = childElement;
-		return (
-			<div style={props.style}>{childElement}</div>
-		);
-	};
- 	
-	render() {
-		let childElements = null; 
-		
-		childElements = React.Children.map(this.props.children, (child) => 
-			this.setStyles(child, {minWidth: this.width}));
-			
-		childElements = React.Children.map(childElements, this.wrapChildElement);
-		
-		console.log('child', childElements)
-		
-		return (
-			<div style={{overflow: "hidden", width: this.width}}>
-				<ul ref={this.scrollElement} style={frameStyles}>	
-					{childElements}
+
+	//childrenFn = children({ currentStep: state.currentStep, nextStep: () => console.log("Hello World") });
+
+	// useEffect(() => {
+	// 	if (!scrollContainer.current) return;
+	// 	const translateValue = 100 * state.currentStep;
+	// 	scrollContainer.current.style.transform = `translateX(-${translateValue}%)`;
+	// }, [state.currentStep]);
+
+
+	return (
+		<WizardContext.Provider value={state}>
+			<div style={{ overflow: "hidden", width: "auto" }}>
+				<ul ref={scrollContainer} style={frameStyles}>
+					{childrenFn}
 				</ul>
-				<button type="button" onClick={() => this.nextStep()}>
-					Next Step
-				</button>
 			</div>
-		);
-	};
-	
-	componentDidMount() {
-		this.props.defaultStep && this.nextStep();
-	};
+		</WizardContext.Provider>
+	);
+};
+
+Wizard.Item = ({ children, styles, title }) => {
+	return (
+		<li style={{ ...wizardItemContainerStyles, ...styles }}>
+			{
+				title &&
+				<p style={{ fontWeight: "bold", color: "white" }}>
+					{title}
+				</p>
+			}
+			<div style={childStyles}>
+				{children}
+			</div>
+		</li>
+	)
 };
 
 export default Wizard;
